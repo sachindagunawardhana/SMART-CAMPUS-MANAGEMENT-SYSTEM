@@ -1,301 +1,434 @@
-# 🏛️ Smart Campus Management System (SCMS)
-
-A full-stack **Spring Boot 3 + HTML/JS** application for managing campus rooms,
-bookings, maintenance requests, and notifications.
+# 🏫 Smart Campus Management System (SCMS)
+## Spring Boot REST API — Complete Implementation
 
 ---
 
-## 🏗️ Architecture Overview
+## 📐 1. SYSTEM DESIGN OVERVIEW
+
+### Architecture: Layered (Clean) Architecture
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│  HTML/JS Frontend (Vanilla JS, Fetch API, CSS Grid)     │
-│  index.html · dashboard · rooms · bookings ·            │
-│  maintenance · notifications · users · analytics        │
-└─────────────────────┬───────────────────────────────────┘
-                      │ REST (JSON + JWT Bearer Token)
-┌─────────────────────▼───────────────────────────────────┐
-│  Spring Boot 3 Backend                                  │
-│                                                         │
-│  Controllers (REST API)                                 │
-│    AuthController · RoomController · BookingController  │
-│    MaintenanceController · NotificationController       │
-│    AdminController                                      │
-│                                                         │
-│  Services (Business Logic + Design Patterns)            │
-│    RoomService       ← FACTORY Pattern                  │
-│    BookingService    ← FACADE Pattern                   │
-│    NotificationService ← OBSERVER Pattern               │
-│    MaintenanceService · AnalyticsService · UserService  │
-│                                                         │
-│  Repositories (Spring Data JPA)                         │
-│    UserRepository · RoomRepository · BookingRepository  │
-│    MaintenanceRequestRepository · NotificationRepository│
-│                                                         │
-│  Security (JWT Stateless)                               │
-│    JwtUtils · JwtAuthFilter · ScmsUserDetailsService    │
-└─────────────────────┬───────────────────────────────────┘
-                      │ JPA / Hibernate
-┌─────────────────────▼───────────────────────────────────┐
-│  H2 In-Memory DB (default) | MySQL (production)         │
-└─────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────┐
+│              Presentation Layer                   │
+│     REST Controllers  ←→  DTOs (Request/Response)│
+├──────────────────────────────────────────────────┤
+│               Business Logic Layer                │
+│  Services (Interfaces + Impls) + Facade + Factory │
+├──────────────────────────────────────────────────┤
+│               Data Access Layer                   │
+│      Spring Data JPA Repositories                 │
+├──────────────────────────────────────────────────┤
+│               Database Layer                      │
+│         H2 (dev) / MySQL (production)             │
+└──────────────────────────────────────────────────┘
 ```
+
+**Cross-cutting:**
+- Security Layer: JWT + Spring Security (stateless)
+- Exception Layer: GlobalExceptionHandler
+- Observer Layer: Notification events across services
 
 ---
 
-## 🎨 Design Patterns
-
-| Pattern | Type | Class | Why |
-|---|---|---|---|
-| **Factory** | Creational | `RoomFactory` | Centralises Room creation with type-specific defaults (projector for halls, AC for labs) |
-| **Facade** | Structural | `BookingService` | Single entry point hiding conflict detection, validation, persistence + notification dispatch |
-| **Observer** | Behavioral | `NotificationService` | Decouples event producers (booking/maintenance) from notification consumers; new channels (email, SMS) just implement `NotificationObserver` |
-| **Singleton** | Creational | Spring `@Service` beans | Framework-managed singleton lifecycle |
-
----
-
-## 🔐 Role-Based Access
-
-| Feature | Admin | Staff | Student |
-|---|:---:|:---:|:---:|
-| View Rooms | ✅ | ✅ | ✅ |
-| Create/Edit Rooms | ✅ | ❌ | ❌ |
-| Book Rooms | ✅ | ✅ | ✅ |
-| View All Bookings | ✅ | ❌ | ❌ |
-| Cancel Any Booking | ✅ | ❌ | ❌ |
-| Report Maintenance | ✅ | ✅ | ✅ |
-| Assign Maintenance | ✅ | ❌ | ❌ |
-| Update Status | ✅ | ✅ | ❌ |
-| User Management | ✅ | ❌ | ❌ |
-| Analytics | ✅ | ❌ | ❌ |
-
----
-
-## 🚀 Quick Start
-
-### Prerequisites
-- Java 17+
-- Maven 3.8+
-
-### 1. Clone / Extract the project
-```bash
-cd scms
-```
-
-### 2. Run the application
-```bash
-mvn spring-boot:run
-```
-
-The app starts on **http://localhost:8080**
-
-### 3. Open in browser
-```
-http://localhost:8080
-```
-
-### 4. Demo Login Credentials
-| Role | Username | Password |
-|---|---|---|
-| Admin | `admin` | `admin123` |
-| Staff | `staff` | `staff123` |
-| Student | `student` | `student123` |
-
----
-
-## 🧪 Running Tests
-
-```bash
-# Run all tests
-mvn test
-
-# Run with verbose output
-mvn test -Dtest=ScmsUnitTests -pl . -Dsurefire.useFile=false
-```
-
-### Test Cases
-
-| # | Test | Expected |
-|---|---|---|
-| TC01 | Create booking — happy path | ✅ Pass |
-| TC02 | Double booking prevention | ✅ Pass |
-| TC03 | Past-time booking rejected | ✅ Pass |
-| TC04 | Capacity exceeded rejected | ✅ Pass |
-| TC05 | Cancel — unauthorized user | ✅ Pass |
-| TC06 | Duplicate room number | ✅ Pass |
-| TC07 | Maintenance request creation | ✅ Pass |
-| TC08 | Assign — non-admin rejected | ✅ Pass |
-| TC09 | Notification fires on booking | ✅ Pass |
-| TC10 | **Intentionally Failing** — wrong status | ❌ Fail (by design) |
-
----
-
-## 📁 Project Structure
+## 📁 2. PROJECT FOLDER STRUCTURE
 
 ```
-scms/
+smart-campus-management/
 ├── pom.xml
 └── src/
     ├── main/
     │   ├── java/com/scms/
-    │   │   ├── SmartCampusApplication.java
+    │   │   ├── SmartCampusManagementApplication.java
     │   │   ├── config/
-    │   │   │   ├── SecurityConfig.java       # JWT + CORS security
-    │   │   │   └── DataSeeder.java           # Demo data on startup
-    │   │   ├── controller/                   # REST endpoints
-    │   │   │   ├── AuthController.java
-    │   │   │   ├── RoomController.java
-    │   │   │   ├── BookingController.java
-    │   │   │   ├── MaintenanceController.java
-    │   │   │   ├── NotificationController.java
-    │   │   │   └── AdminController.java
-    │   │   ├── dto/                          # Request/Response objects
-    │   │   │   ├── AuthDTO.java
-    │   │   │   ├── RoomDTO.java
-    │   │   │   ├── BookingDTO.java
-    │   │   │   ├── MaintenanceDTO.java
-    │   │   │   ├── NotificationDTO.java
-    │   │   │   └── AnalyticsDTO.java
-    │   │   ├── exception/                    # Custom exceptions
-    │   │   │   ├── SystemException.java
-    │   │   │   ├── InvalidBookingException.java
-    │   │   │   ├── UnauthorizedAccessException.java
-    │   │   │   ├── DuplicateDataException.java
-    │   │   │   ├── ResourceNotFoundException.java
-    │   │   │   └── GlobalExceptionHandler.java
-    │   │   ├── model/                        # JPA Entities
-    │   │   │   ├── User.java (abstract)
+    │   │   │   ├── SecurityConfig.java          # JWT + Spring Security config
+    │   │   │   └── DataSeeder.java              # Demo data on startup
+    │   │   ├── controller/
+    │   │   │   ├── AuthController.java          # POST /api/auth/login, /register
+    │   │   │   ├── RoomController.java          # /api/rooms/**
+    │   │   │   ├── BookingController.java       # /api/bookings/**
+    │   │   │   ├── MaintenanceController.java   # /api/maintenance/**
+    │   │   │   ├── NotificationController.java  # /api/notifications/**
+    │   │   │   └── AnalyticsController.java     # /api/analytics/**
+    │   │   ├── dto/
+    │   │   │   ├── AuthDto.java
+    │   │   │   ├── RoomDto.java
+    │   │   │   ├── BookingDto.java
+    │   │   │   ├── MaintenanceDto.java
+    │   │   │   ├── NotificationDto.java
+    │   │   │   └── AnalyticsDto.java
+    │   │   ├── entity/
+    │   │   │   ├── User.java        (abstract base)
+    │   │   │   ├── Admin.java
+    │   │   │   ├── Staff.java
+    │   │   │   ├── Student.java
     │   │   │   ├── Room.java
     │   │   │   ├── Booking.java
     │   │   │   ├── MaintenanceRequest.java
     │   │   │   └── Notification.java
-    │   │   ├── repository/                   # Spring Data JPA
-    │   │   ├── security/                     # JWT classes
+    │   │   ├── enums/
+    │   │   │   ├── UserRole.java
+    │   │   │   ├── RoomType.java
+    │   │   │   ├── BookingStatus.java
+    │   │   │   ├── MaintenanceStatus.java
+    │   │   │   ├── Priority.java
+    │   │   │   └── NotificationType.java
+    │   │   ├── exception/
+    │   │   │   ├── GlobalExceptionHandler.java
+    │   │   │   ├── InvalidBookingException.java
+    │   │   │   ├── UnauthorizedAccessException.java
+    │   │   │   ├── DuplicateDataException.java
+    │   │   │   ├── ResourceNotFoundException.java
+    │   │   │   └── SystemException.java
+    │   │   ├── repository/
+    │   │   │   ├── UserRepository.java
+    │   │   │   ├── RoomRepository.java
+    │   │   │   ├── BookingRepository.java
+    │   │   │   ├── MaintenanceRequestRepository.java
+    │   │   │   └── NotificationRepository.java
+    │   │   ├── security/
     │   │   │   ├── JwtUtils.java
     │   │   │   ├── JwtAuthFilter.java
-    │   │   │   └── ScmsUserDetailsService.java
+    │   │   │   └── UserDetailsServiceImpl.java
     │   │   └── service/
-    │   │       ├── NotificationObserver.java  # Observer interface
-    │   │       ├── NotificationSubject.java   # Subject interface
+    │   │       ├── UserService.java (interface)
+    │   │       ├── RoomService.java (interface)
+    │   │       ├── BookingService.java (interface)
+    │   │       ├── MaintenanceService.java (interface)
+    │   │       ├── NotificationService.java (interface)
+    │   │       ├── NotificationObserver.java (Observer interface)
+    │   │       ├── NotificationPublisher.java (Subject interface)
     │   │       └── impl/
-    │   │           ├── RoomFactory.java       # Factory Pattern
-    │   │           ├── RoomService.java
-    │   │           ├── BookingService.java    # Facade Pattern
-    │   │           ├── MaintenanceService.java
-    │   │           ├── NotificationService.java # Observer Pattern
-    │   │           ├── UserService.java
-    │   │           └── AnalyticsService.java
+    │   │           ├── UserServiceImpl.java    ← Factory Pattern
+    │   │           ├── RoomServiceImpl.java
+    │   │           ├── BookingServiceImpl.java
+    │   │           ├── MaintenanceServiceImpl.java
+    │   │           ├── NotificationServiceImpl.java ← Observer Pattern
+    │   │           ├── BookingFacade.java      ← Facade Pattern
+    │   │           └── AnalyticsService.java   ← Bonus analytics
     │   └── resources/
-    │       ├── application.properties
-    │       └── static/
-    │           ├── index.html               # Login page
-    │           ├── css/app.css              # Shared styles
-    │           ├── js/
-    │           │   ├── api.js               # API client + helpers
-    │           │   └── layout.js            # Sidebar renderer
-    │           └── pages/
-    │               ├── dashboard.html
-    │               ├── rooms.html
-    │               ├── bookings.html
-    │               ├── maintenance.html
-    │               ├── notifications.html
-    │               ├── users.html           # Admin only
-    │               └── analytics.html       # Admin only
+    │       └── application.properties
     └── test/
-        └── java/com/scms/
-            └── ScmsUnitTests.java
+        ├── java/com/scms/
+        │   ├── ScmsIntegrationTest.java
+        │   └── service/
+        │       ├── BookingServiceTest.java     (10 test cases)
+        │       ├── MaintenanceServiceTest.java  (6 test cases + 1 intentional fail)
+        │       ├── NotificationServiceTest.java (6 test cases)
+        │       └── RoomServiceTest.java         (6 test cases)
+        └── resources/
+            └── application-test.properties
 ```
 
 ---
 
-## 🌐 API Reference
+## 🎨 3. DESIGN PATTERNS
 
-### Auth
-| Method | Endpoint | Access |
-|---|---|---|
-| POST | `/api/auth/login` | Public |
-| POST | `/api/auth/register` | Public |
+### Creational — Factory Method (UserServiceImpl)
+```
+UserServiceImpl.createUserByRole(request, role)
+  → ADMIN   → new Admin(...)
+  → STAFF   → new Staff(...)
+  → STUDENT → new Student(...)
+```
+**Why:** New user types can be added by adding a `case` without touching callers — Open/Closed Principle.
 
-### Rooms
-| Method | Endpoint | Access |
-|---|---|---|
-| GET | `/api/rooms` | All |
-| GET | `/api/rooms/available` | All |
-| POST | `/api/rooms` | Admin |
-| PUT | `/api/rooms/{id}` | Admin |
-| PATCH | `/api/rooms/{id}/activate` | Admin |
-| PATCH | `/api/rooms/{id}/deactivate` | Admin |
-| PATCH | `/api/rooms/{id}/maintenance` | Admin |
+### Structural — Facade (BookingFacade)
+```
+BookingFacade
+  ├── bookRoom(request)       → coordinates RoomService + BookingService
+  ├── findAvailableRooms(...) → delegates to RoomService
+  └── cancelBooking(...)      → delegates to BookingService
+```
+**Why:** Controllers stay thin. Multi-step workflows are hidden behind one entry point.
 
-### Bookings
-| Method | Endpoint | Access |
-|---|---|---|
-| GET | `/api/bookings` | Admin |
-| GET | `/api/bookings/my` | Self |
-| GET | `/api/bookings/upcoming` | Self |
-| POST | `/api/bookings` | All |
-| DELETE | `/api/bookings/{id}/cancel` | Owner/Admin |
-
-### Maintenance
-| Method | Endpoint | Access |
-|---|---|---|
-| GET | `/api/maintenance` | Admin |
-| GET | `/api/maintenance/my` | Self |
-| GET | `/api/maintenance/assigned` | Staff/Admin |
-| POST | `/api/maintenance` | All |
-| PATCH | `/api/maintenance/{id}/assign` | Admin |
-| PATCH | `/api/maintenance/{id}/status` | Staff/Admin |
-
-### Admin
-| Method | Endpoint | Access |
-|---|---|---|
-| GET | `/api/admin/users` | Admin |
-| GET | `/api/admin/analytics` | Admin |
-| PATCH | `/api/admin/users/{id}/activate` | Admin |
+### Behavioral — Observer (NotificationServiceImpl)
+```
+NotificationPublisher (Subject)
+  └── notifyObservers(type, user, title, msg, refId, refType)
+        ├── NotificationServiceImpl.onEvent() → saves to DB
+        ├── EmailObserver.onEvent()            → sends email
+        └── SMSObserver.onEvent()              → sends SMS
+```
+**Why:** Adding new notification channels (Push, Slack) requires zero changes to existing services.
 
 ---
 
-## 🗄️ Switch to MySQL (Production)
+## 🔑 4. API ENDPOINTS REFERENCE
 
-In `application.properties`, comment H2 and uncomment MySQL:
+### Authentication (Public)
+| Method | Endpoint               | Description          |
+|--------|------------------------|----------------------|
+| POST   | /api/auth/login        | Get JWT token        |
+| POST   | /api/auth/register     | Register new user    |
 
+### Rooms
+| Method | Endpoint                        | Role        |
+|--------|---------------------------------|-------------|
+| GET    | /api/rooms                      | All         |
+| GET    | /api/rooms/active               | All         |
+| GET    | /api/rooms/{id}                 | All         |
+| GET    | /api/rooms/available?start&end  | All         |
+| POST   | /api/rooms/available/filter     | All         |
+| POST   | /api/rooms                      | ADMIN       |
+| PUT    | /api/rooms/{id}                 | ADMIN       |
+| PUT    | /api/rooms/{id}/deactivate      | ADMIN       |
+| PUT    | /api/rooms/{id}/activate        | ADMIN       |
+
+### Bookings
+| Method | Endpoint                     | Role              |
+|--------|------------------------------|-------------------|
+| POST   | /api/bookings                | All               |
+| GET    | /api/bookings/my             | All               |
+| GET    | /api/bookings/{id}           | All               |
+| GET    | /api/bookings                | ADMIN             |
+| GET    | /api/bookings/room/{roomId}  | ADMIN / STAFF     |
+| PUT    | /api/bookings/{id}/confirm   | ADMIN             |
+| PUT    | /api/bookings/{id}/cancel    | Owner or ADMIN    |
+
+### Maintenance
+| Method | Endpoint                          | Role              |
+|--------|-----------------------------------|-------------------|
+| POST   | /api/maintenance                  | All               |
+| GET    | /api/maintenance/my               | All               |
+| GET    | /api/maintenance/{id}             | All               |
+| GET    | /api/maintenance                  | ADMIN / STAFF     |
+| GET    | /api/maintenance/assigned         | ADMIN / STAFF     |
+| PUT    | /api/maintenance/{id}/assign      | ADMIN             |
+| PUT    | /api/maintenance/{id}/status      | Assignee / ADMIN  |
+
+### Notifications
+| Method | Endpoint                         | Role  |
+|--------|----------------------------------|-------|
+| GET    | /api/notifications               | All   |
+| GET    | /api/notifications/unread        | All   |
+| GET    | /api/notifications/unread/count  | All   |
+| PUT    | /api/notifications/{id}/read     | All   |
+| PUT    | /api/notifications/read-all      | All   |
+
+### Analytics (Admin only)
+| Method | Endpoint              | Description         |
+|--------|-----------------------|---------------------|
+| GET    | /api/analytics        | Full dashboard stats |
+
+---
+
+## 🚀 5. QUICK START GUIDE
+
+### Prerequisites
+- Java 17+
+- Maven 3.8+
+- Git
+
+### Step 1 — Clone & Build
+```bash
+cd smart-campus-management
+mvn clean package -DskipTests
+```
+
+### Step 2 — Run
+```bash
+mvn spring-boot:run
+# OR
+java -jar target/smart-campus-management-1.0.0.jar
+```
+
+The application starts on **http://localhost:8080**
+
+H2 Console: **http://localhost:8080/h2-console**
+- JDBC URL: `jdbc:h2:mem:scmsdb`
+- Username: `sa` | Password: *(blank)*
+
+### Step 3 — Login (Demo Credentials)
+```bash
+curl -X POST http://localhost:8080/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"admin@scms.com","password":"Admin@123"}'
+```
+Response: `{"token":"eyJ...", "role":"ADMIN", ...}`
+
+### Step 4 — Use the Token
+```bash
+TOKEN="eyJ..."
+
+# Create a room
+curl -X POST http://localhost:8080/api/rooms \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "roomNumber":"Z100",
+    "roomName":"New Room",
+    "roomType":"SEMINAR_ROOM",
+    "capacity":30
+  }'
+
+# Book a room
+curl -X POST http://localhost:8080/api/bookings \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "roomId":1,
+    "startTime":"2026-06-01T09:00:00",
+    "endTime":"2026-06-01T11:00:00",
+    "purpose":"Team meeting",
+    "attendeesCount":15
+  }'
+```
+
+### Step 5 — Run Tests
+```bash
+# All tests
+mvn test
+
+# Specific test class
+mvn test -Dtest=BookingServiceTest
+
+# With verbose output
+mvn test -Dtest=BookingServiceTest -Dsurefire.failIfNoSpecifiedTests=false
+```
+
+---
+
+## 🗄️ 6. DATABASE SCHEMA (Auto-Generated by Hibernate)
+
+```sql
+-- Users (single-table inheritance)
+CREATE TABLE users (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_type VARCHAR(31),      -- discriminator: ADMIN / STAFF / STUDENT
+    first_name VARCHAR(255) NOT NULL,
+    last_name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password VARCHAR(255) NOT NULL,
+    role VARCHAR(50) NOT NULL,
+    is_active BOOLEAN DEFAULT TRUE,
+    department VARCHAR(255),
+    employee_id VARCHAR(255),
+    position VARCHAR(255),
+    student_id VARCHAR(255),
+    faculty VARCHAR(255),
+    year_of_study INT,
+    created_at TIMESTAMP,
+    updated_at TIMESTAMP
+);
+
+-- Rooms
+CREATE TABLE rooms (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    room_number VARCHAR(255) UNIQUE NOT NULL,
+    room_name VARCHAR(255) NOT NULL,
+    room_type VARCHAR(50) NOT NULL,
+    capacity INT NOT NULL,
+    building VARCHAR(255),
+    floor_number INT,
+    has_projector BOOLEAN,
+    has_whiteboard BOOLEAN,
+    has_air_conditioning BOOLEAN,
+    is_active BOOLEAN DEFAULT TRUE,
+    description VARCHAR(500),
+    created_at TIMESTAMP,
+    updated_at TIMESTAMP
+);
+
+-- Bookings
+CREATE TABLE bookings (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    room_id BIGINT REFERENCES rooms(id),
+    user_id BIGINT REFERENCES users(id),
+    start_time TIMESTAMP NOT NULL,
+    end_time TIMESTAMP NOT NULL,
+    purpose VARCHAR(300),
+    status VARCHAR(50) NOT NULL,
+    attendees_count INT,
+    cancellation_reason VARCHAR(300),
+    created_at TIMESTAMP,
+    updated_at TIMESTAMP
+);
+
+-- Maintenance requests
+CREATE TABLE maintenance_requests (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    title VARCHAR(255) NOT NULL,
+    description VARCHAR(1000) NOT NULL,
+    priority VARCHAR(50) NOT NULL,
+    status VARCHAR(50) NOT NULL,
+    room_id BIGINT REFERENCES rooms(id),
+    reported_by_id BIGINT REFERENCES users(id),
+    assigned_to_id BIGINT REFERENCES users(id),
+    resolution_notes VARCHAR(500),
+    created_at TIMESTAMP,
+    updated_at TIMESTAMP,
+    resolved_at TIMESTAMP
+);
+
+-- Notifications
+CREATE TABLE notifications (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    title VARCHAR(255) NOT NULL,
+    message VARCHAR(500) NOT NULL,
+    notification_type VARCHAR(50) NOT NULL,
+    recipient_id BIGINT REFERENCES users(id),
+    is_read BOOLEAN DEFAULT FALSE,
+    reference_id BIGINT,
+    reference_type VARCHAR(50),
+    created_at TIMESTAMP,
+    read_at TIMESTAMP
+);
+```
+
+---
+
+## 🧪 7. TEST SUMMARY
+
+| Test File                   | Test Cases | Notes                              |
+|-----------------------------|------------|------------------------------------|
+| BookingServiceTest          | 10         | Includes double-booking & edge cases |
+| MaintenanceServiceTest      | 6          | TC06 = **intentional failing test** |
+| NotificationServiceTest     | 6          | Tests observer registration        |
+| RoomServiceTest             | 6          | CRUD + deactivation tests          |
+| ScmsIntegrationTest         | 3          | Full Spring context                |
+
+**Intentional Failing Test:** `MaintenanceServiceTest.TC06`
+- Expects status `"ASSIGNED"` but actual is `"OPEN"`
+- Purpose: demonstrates that the test harness correctly detects wrong assertions
+
+---
+
+## 🔧 8. SWITCHING TO MySQL (Production)
+
+In `application.properties`, comment out H2 and uncomment MySQL:
 ```properties
-spring.datasource.url=jdbc:mysql://localhost:3306/scmsdb?useSSL=false
+spring.datasource.url=jdbc:mysql://localhost:3306/scmsdb?useSSL=false&serverTimezone=UTC
 spring.datasource.username=root
 spring.datasource.password=yourpassword
-spring.datasource.driverClassName=com.mysql.cj.jdbc.Driver
-spring.jpa.database-platform=org.hibernate.dialect.MySQL8Dialect
+spring.jpa.database-platform=org.hibernate.dialect.MySQLDialect
 spring.jpa.hibernate.ddl-auto=update
 ```
 
-Add MySQL dependency to `pom.xml`:
-```xml
-<dependency>
-    <groupId>com.mysql</groupId>
-    <artifactId>mysql-connector-j</artifactId>
-    <scope>runtime</scope>
-</dependency>
+Create the database:
+```sql
+CREATE DATABASE scmsdb CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 ```
 
 ---
 
-## 🔧 H2 Console (Development)
+## 👥 9. DEMO USER CREDENTIALS
 
-Access the in-memory database at:
-```
-http://localhost:8080/h2-console
-JDBC URL:  jdbc:h2:mem:scmsdb
-Username:  sa
-Password:  (empty)
-```
+| Role    | Email                    | Password     |
+|---------|--------------------------|--------------|
+| Admin   | admin@scms.com           | Admin@123    |
+| Staff   | staff@scms.com           | Staff@123    |
+| Staff   | jane.staff@scms.com      | Staff@123    |
+| Student | student@scms.com         | Student@123  |
+| Student | Kiyon.student@scms.com     | Student@123  |
 
 ---
 
-## ✅ SOLID Principles Applied
+## 📊 10. SOLID PRINCIPLES APPLIED
 
-- **S**ingle Responsibility — each service handles one domain
-- **O**pen/Closed — `NotificationObserver` can be extended without modifying `NotificationService`
-- **L**iskov Substitution — `User` subclasses used interchangeably
-- **I**nterface Segregation — `NotificationSubject` and `NotificationObserver` are separate interfaces
-- **D**ependency Inversion — services depend on repository interfaces, not implementations
-[README.md](https://github.com/user-attachments/files/26979641/README.md)
+| Principle | Where Applied                                          |
+|-----------|--------------------------------------------------------|
+| **S**RP   | Each class has one job (Service, Controller, Repository) |
+| **O**CP   | Factory Method: new user types without modifying caller |
+| **L**SP   | Admin/Staff/Student safely substitute for User          |
+| **I**SP   | NotificationObserver and NotificationPublisher are separate narrow interfaces |
+| **D**IP   | Controllers depend on service interfaces, not impls     |
